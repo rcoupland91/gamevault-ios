@@ -83,7 +83,7 @@ enum GameStatus: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-struct Game: Codable, Identifiable {
+struct Game: Codable, Identifiable, Equatable {
     let id: String
     let userId: String?
     var rawgId: Int?
