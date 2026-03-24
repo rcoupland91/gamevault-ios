@@ -192,9 +192,9 @@ struct GameStats: Codable {
     let playing: Int
     let played: Int
     let toplay: Int
-    let totalHours: String?
-    let avgHours: String?
-    let avgRating: String?
+    let totalHours: Double?
+    let avgHours: Double?
+    let avgRating: Double?
     let platformBreakdown: [PlatformStat]?
     let genreBreakdown: [GenreStat]?
     let recentActivity: [Game]?
@@ -209,19 +209,14 @@ struct GameStats: Codable {
         case recentActivity = "recentActivity"
     }
 
-    var totalHoursDouble: Double {
-        Double(totalHours ?? "0") ?? 0
-    }
-
-    var avgRatingDouble: Double {
-        Double(avgRating ?? "0") ?? 0
-    }
+    var totalHoursDouble: Double { totalHours ?? 0 }
+    var avgRatingDouble: Double { avgRating ?? 0 }
 }
 
 struct PlatformStat: Codable, Identifiable {
     var id: String { platform ?? "unknown" }
     let platform: String?
-    let hours: String?
+    let hours: Double?
     let count: Int
 }
 

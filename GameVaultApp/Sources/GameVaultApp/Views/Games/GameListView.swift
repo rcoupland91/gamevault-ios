@@ -45,6 +45,12 @@ struct GameLibraryView: View {
                     .padding(.bottom, 8)
 
                     // Content
+                    if let error = vm.error {
+                        ErrorBanner(message: error) { vm.error = nil }
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
+                    }
+
                     if vm.isLoading && vm.games.isEmpty {
                         Spacer()
                         ProgressView().tint(.indigo)

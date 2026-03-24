@@ -143,7 +143,7 @@ struct DashboardView: View {
                                 .fontWeight(.medium)
                             Spacer()
                             HStack(spacing: 12) {
-                                if let hours = stat.hours, let h = Double(hours), h > 0 {
+                                if let h = stat.hours, h > 0 {
                                     Text(formatHours(h))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
