@@ -12,8 +12,15 @@
       "iconURL": "https://raw.githubusercontent.com/rcoupland91/gamevault-ios/main/GameVaultApp/Sources/GameVaultApp/Resources/Assets.xcassets/AppIcon.appiconset/icon-512.png",
       "tintColor": "5B5EF4",
       "screenshotURLs": [],
-      "version": "1.0.2",
+      "version": "1.0.3",
       "versions": [
+        {
+          "version": "1.0.3",
+          "date": "2026-03-24T16:30:42Z",
+          "localizedDescription": "See release notes at https://github.com/rcoupland91/gamevault-ios/releases/tag/v1.0.3",
+          "downloadURL": "https://github.com/rcoupland91/gamevault-ios/releases/download/v1.0.3/GameVault-v1.0.3.ipa",
+          "size": 1245114
+        },
         {
           "version": "1.0.2",
           "date": "2026-03-24T16:19:32Z",
