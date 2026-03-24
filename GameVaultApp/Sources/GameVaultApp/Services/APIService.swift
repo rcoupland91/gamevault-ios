@@ -98,6 +98,21 @@ final class APIService {
             let decoder = JSONDecoder()
             do {
                 return try decoder.decode(T.self, from: data)
+            } catch let decodeError as DecodingError {
+                let detail: String
+                switch decodeError {
+                case .typeMismatch(let type, let ctx):
+                    detail = "TypeMismatch: expected \(type) at \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                case .keyNotFound(let key, let ctx):
+                    detail = "KeyNotFound: \(key.stringValue) at \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                case .valueNotFound(let type, let ctx):
+                    detail = "ValueNotFound: \(type) at \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                case .dataCorrupted(let ctx):
+                    detail = "DataCorrupted at \(ctx.codingPath.map(\.stringValue).joined(separator: "."))"
+                @unknown default:
+                    detail = decodeError.localizedDescription
+                }
+                throw APIServiceError.decodingError(NSError(domain: detail, code: 0))
             } catch {
                 throw APIServiceError.decodingError(error)
             }
