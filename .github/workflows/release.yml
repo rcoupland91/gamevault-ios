@@ -161,8 +161,8 @@ jobs:
           IPA_SIZE:    ${{ steps.package.outputs.IPA_SIZE }}
           REPO:        ${{ github.repository }}
         run: |
-          TODAY=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${{ steps.package.outputs.IPA_NAME }}"
+          export TODAY=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          export DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${{ steps.package.outputs.IPA_NAME }}"
 
           python3 - <<PYEOF
           import json, os
