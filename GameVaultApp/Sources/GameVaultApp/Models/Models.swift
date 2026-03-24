@@ -7,7 +7,7 @@ struct User: Codable, Identifiable {
     let username: String
     let email: String
     let avatarUrl: String?
-    let isAdmin: Bool
+    let isAdmin: Bool?
     let isActive: Bool?
     let createdAt: String?
     var totpEnabled: Bool?
