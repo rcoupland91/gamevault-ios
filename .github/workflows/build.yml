@@ -33,6 +33,9 @@ jobs:
           path: ~/Library/Caches/Homebrew
           key: brew-xcodegen-${{ runner.os }}
 
+      - name: Download iOS platform
+        run: sudo xcodebuild -downloadPlatform iOS
+
       - name: Install xcodegen
         run: brew install xcodegen
 
