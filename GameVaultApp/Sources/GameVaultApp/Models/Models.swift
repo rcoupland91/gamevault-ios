@@ -1,5 +1,22 @@
 import Foundation
 
+// MARK: - Decoding helper (handles fields that may be String or Double in the API)
+
+extension KeyedDecodingContainer {
+    func decodeFlexDouble(_ key: Key) throws -> Double? {
+        if let d = try? decodeIfPresent(Double.self, forKey: key) { return d }
+        if let s = try? decodeIfPresent(String.self, forKey: key) { return Double(s) }
+        return nil
+    }
+
+    func decodeFlexInt(_ key: Key) throws -> Int {
+        if let i = try? decode(Int.self, forKey: key) { return i }
+        if let d = try? decode(Double.self, forKey: key) { return Int(d) }
+        if let s = try? decode(String.self, forKey: key), let i = Int(s) { return i }
+        return 0
+    }
+}
+
 // MARK: - User
 
 struct User: Codable, Identifiable {
@@ -143,14 +160,7 @@ struct Game: Codable, Identifiable, Equatable {
         completedAt = try c.decodeIfPresent(String.self, forKey: .completedAt)
         createdAt   = try c.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt   = try c.decodeIfPresent(String.self, forKey: .updatedAt)
-        // hours may come back as a String or a Double depending on server version
-        if let d = try? c.decodeIfPresent(Double.self, forKey: .hours) {
-            hours = d
-        } else if let s = try? c.decodeIfPresent(String.self, forKey: .hours) {
-            hours = Double(s)
-        } else {
-            hours = nil
-        }
+        hours = try c.decodeFlexDouble(.hours)
     }
 
     var displayRating: String {
@@ -241,6 +251,20 @@ struct GameStats: Codable {
         case recentActivity = "recentActivity"
     }
 
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        total            = try c.decodeFlexInt(.total)
+        playing          = try c.decodeFlexInt(.playing)
+        played           = try c.decodeFlexInt(.played)
+        toplay           = try c.decodeFlexInt(.toplay)
+        totalHours       = try c.decodeFlexDouble(.totalHours)
+        avgHours         = try c.decodeFlexDouble(.avgHours)
+        avgRating        = try c.decodeFlexDouble(.avgRating)
+        platformBreakdown = try c.decodeIfPresent([PlatformStat].self, forKey: .platformBreakdown)
+        genreBreakdown   = try c.decodeIfPresent([GenreStat].self, forKey: .genreBreakdown)
+        recentActivity   = try c.decodeIfPresent([Game].self, forKey: .recentActivity)
+    }
+
     var totalHoursDouble: Double { totalHours ?? 0 }
     var avgRatingDouble: Double { avgRating ?? 0 }
 }
@@ -250,12 +274,25 @@ struct PlatformStat: Codable, Identifiable {
     let platform: String?
     let hours: Double?
     let count: Int
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        platform = try c.decodeIfPresent(String.self, forKey: .platform)
+        hours    = try c.decodeFlexDouble(.hours)
+        count    = try c.decodeFlexInt(.count)
+    }
 }
 
 struct GenreStat: Codable, Identifiable {
     var id: String { genre ?? "unknown" }
     let genre: String?
     let count: Int
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        genre = try c.decodeIfPresent(String.self, forKey: .genre)
+        count = try c.decodeFlexInt(.count)
+    }
 }
 
 // MARK: - RAWG Search

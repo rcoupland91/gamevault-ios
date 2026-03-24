@@ -80,6 +80,12 @@ struct AddGameView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
 
+            if let error = vm.error {
+                ErrorBanner(message: error) { vm.error = nil }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+
             // Results
             if vm.isSearching {
                 Spacer()
