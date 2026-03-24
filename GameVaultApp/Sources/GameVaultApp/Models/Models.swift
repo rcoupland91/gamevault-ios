@@ -121,6 +121,38 @@ struct Game: Codable, Identifiable, Equatable {
         case updatedAt = "updated_at"
     }
 
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id          = try c.decode(String.self, forKey: .id)
+        userId      = try c.decodeIfPresent(String.self, forKey: .userId)
+        rawgId      = try c.decodeIfPresent(Int.self, forKey: .rawgId)
+        title       = try c.decode(String.self, forKey: .title)
+        status      = try c.decode(GameStatus.self, forKey: .status)
+        rating      = try c.decodeIfPresent(Int.self, forKey: .rating)
+        review      = try c.decodeIfPresent(String.self, forKey: .review)
+        platform    = try c.decodeIfPresent(String.self, forKey: .platform)
+        genre       = try c.decodeIfPresent(String.self, forKey: .genre)
+        year        = try c.decodeIfPresent(String.self, forKey: .year)
+        artUrl      = try c.decodeIfPresent(String.self, forKey: .artUrl)
+        backgroundUrl = try c.decodeIfPresent(String.self, forKey: .backgroundUrl)
+        developer   = try c.decodeIfPresent(String.self, forKey: .developer)
+        publisher   = try c.decodeIfPresent(String.self, forKey: .publisher)
+        metacritic  = try c.decodeIfPresent(Int.self, forKey: .metacritic)
+        rawgSlug    = try c.decodeIfPresent(String.self, forKey: .rawgSlug)
+        notes       = try c.decodeIfPresent(String.self, forKey: .notes)
+        completedAt = try c.decodeIfPresent(String.self, forKey: .completedAt)
+        createdAt   = try c.decodeIfPresent(String.self, forKey: .createdAt)
+        updatedAt   = try c.decodeIfPresent(String.self, forKey: .updatedAt)
+        // hours may come back as a String or a Double depending on server version
+        if let d = try? c.decodeIfPresent(Double.self, forKey: .hours) {
+            hours = d
+        } else if let s = try? c.decodeIfPresent(String.self, forKey: .hours) {
+            hours = Double(s)
+        } else {
+            hours = nil
+        }
+    }
+
     var displayRating: String {
         guard let r = rating, r > 0 else { return "Unrated" }
         return String(repeating: "★", count: r) + String(repeating: "☆", count: 5 - r)
