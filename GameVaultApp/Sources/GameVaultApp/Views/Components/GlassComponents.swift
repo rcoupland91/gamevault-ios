@@ -17,18 +17,12 @@ struct GlassCard<Content: View>: View {
         content
             .padding(padding)
             .background {
-                if #available(iOS 26.0, *) {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.regularMaterial)
-                        .glassEffect()
-                } else {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        }
-                }
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    }
             }
     }
 }
@@ -283,7 +277,7 @@ struct GameArtworkView: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .aspectRatio(aspectRatio, contentMode: .fill)
+                            .scaledToFill()
                     case .failure:
                         placeholderView
                     case .empty:
@@ -301,6 +295,7 @@ struct GameArtworkView: View {
                 placeholderView
             }
         }
+        .clipped()
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 
