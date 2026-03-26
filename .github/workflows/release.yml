@@ -98,6 +98,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             SKIP_INSTALL=NO \
+            MARKETING_VERSION="${{ steps.version.outputs.VERSION_NUM }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.VERSION_NUM }}" \
             2>&1 | tail -50
 
       - name: Package IPA
