@@ -155,6 +155,19 @@ final class AuthService {
         let _: EmptyResponse = try await api.request("/auth/2fa/email/toggle", method: .post, body: body)
     }
 
+    // MARK: - Public Settings
+
+    func fetchPublicSettings() async throws -> PublicSettings {
+        return try await api.request("/settings/public", retryOnUnauthorized: false)
+    }
+
+    // MARK: - OIDC Token Storage
+
+    func storeOIDCTokens(access: String, refresh: String) {
+        keychain.save(access, for: .accessToken)
+        keychain.save(refresh, for: .refreshToken)
+    }
+
     // MARK: - Helpers
 
     var isLoggedIn: Bool {

@@ -87,6 +87,37 @@ struct LoginView: View {
                         }
                     }
 
+                    // OIDC / SSO button
+                    if let settings = authVM.publicSettings, settings.oidcEnabled {
+                        VStack(spacing: 12) {
+                            HStack {
+                                VStack { Divider() }
+                                Text("or").font(.caption).foregroundStyle(.secondary)
+                                VStack { Divider() }
+                            }
+
+                            Button {
+                                Task { await authVM.loginWithOIDC() }
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "person.badge.key.fill")
+                                    Text("Continue with \(settings.oidcDisplayName)")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(.ultraThinMaterial)
+                                .foregroundStyle(.primary)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                                }
+                            }
+                            .disabled(authVM.isLoading)
+                        }
+                    }
+
                     // Server config button
                     Button {
                         authVM.showServerSetup = true
@@ -130,6 +161,9 @@ struct LoginView: View {
         }
         .sheet(isPresented: $authVM.requires2FA) {
             TwoFactorView(authVM: authVM)
+        }
+        .task {
+            await authVM.loadPublicSettings()
         }
     }
 

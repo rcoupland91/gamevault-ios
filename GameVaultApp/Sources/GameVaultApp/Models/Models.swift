@@ -323,6 +323,20 @@ struct RAWGGame: Codable, Identifiable {
     }
 }
 
+// MARK: - Public Server Settings
+
+struct PublicSettings: Codable {
+    let signupsEnabled: Bool
+    let oidcEnabled: Bool
+    let oidcDisplayName: String
+
+    enum CodingKeys: String, CodingKey {
+        case signupsEnabled = "signups_enabled"
+        case oidcEnabled = "oidc_enabled"
+        case oidcDisplayName = "oidc_display_name"
+    }
+}
+
 // MARK: - API Error
 
 struct APIError: Codable {
