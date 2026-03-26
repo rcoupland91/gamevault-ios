@@ -67,6 +67,7 @@ final class GameDetailViewModel: ObservableObject {
     @Published var isDeleting = false
     @Published var error: String?
     @Published var saveSuccess = false
+    @Published var availablePlatforms: [String] = GameDetailViewModel.allPlatforms
 
     // Edit fields
     @Published var title: String
@@ -97,6 +98,13 @@ final class GameDetailViewModel: ObservableObject {
         self.developer = game.developer ?? ""
         self.publisher = game.publisher ?? ""
     }
+
+    static let allPlatforms: [String] = [
+        "PC", "PlayStation 5", "PlayStation 4", "PlayStation 3",
+        "Xbox Series X/S", "Xbox One", "Xbox 360",
+        "Nintendo Switch", "Nintendo Switch 2",
+        "iOS", "Android", "macOS", "Linux"
+    ]
 
     func save() async {
         isSaving = true
@@ -175,7 +183,7 @@ final class AddGameViewModel: ObservableObject {
         }
     }
 
-    func addGame(from rawgGame: RAWGGame) async {
+    func addGame(from rawgGame: RAWGGame, platform: String? = nil) async {
         isAdding = true
         error = nil
 
@@ -186,7 +194,7 @@ final class AddGameViewModel: ObservableObject {
             rating: nil,
             hours: nil,
             review: nil,
-            platform: rawgGame.platforms?.first,
+            platform: platform ?? rawgGame.platforms?.first,
             genre: rawgGame.genres?.first,
             year: rawgGame.year,
             artUrl: rawgGame.artUrl,

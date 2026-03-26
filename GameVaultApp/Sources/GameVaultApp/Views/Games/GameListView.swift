@@ -58,7 +58,7 @@ struct GameLibraryView: View {
                     } else if vm.filteredGames.isEmpty {
                         emptyStateView
                     } else {
-                        gameGrid
+                        gameList
                     }
                 }
             }
@@ -113,16 +113,13 @@ struct GameLibraryView: View {
         }
     }
 
-    // MARK: - Game Grid
+    // MARK: - Game List
 
-    private var gameGrid: some View {
+    private var gameList: some View {
         ScrollView(showsIndicators: false) {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 12)],
-                spacing: 12
-            ) {
+            LazyVStack(spacing: 10) {
                 ForEach(vm.filteredGames) { game in
-                    GameCard(game: game)
+                    GameRow(game: game)
                         .onTapGesture { selectedGame = game }
                         .contextMenu {
                             statusMenuItems(game: game)
@@ -133,12 +130,45 @@ struct GameLibraryView: View {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            promoteSwipeButton(game: game)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                Task { await vm.deleteGame(id: game.id) }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                 }
             }
-            .padding(16)
-            .padding(.bottom, 80)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 88)
         }
         .refreshable { await vm.loadGames(status: selectedStatus) }
+    }
+
+    @ViewBuilder
+    private func promoteSwipeButton(game: Game) -> some View {
+        switch game.status {
+        case .toplay:
+            Button {
+                Task { await vm.updateGameStatus(game: game, newStatus: .playing) }
+            } label: {
+                Label("Playing", systemImage: "gamecontroller.fill")
+            }
+            .tint(.green)
+        case .playing:
+            Button {
+                Task { await vm.updateGameStatus(game: game, newStatus: .played) }
+            } label: {
+                Label("Completed", systemImage: "checkmark.circle.fill")
+            }
+            .tint(.blue)
+        case .played:
+            EmptyView()
+        }
     }
 
     @ViewBuilder
@@ -225,10 +255,71 @@ struct GameLibraryView: View {
         .padding()
     }
 
-    @State private var showAddGame2 = false
-
     private var backgroundGradient: some View {
         Color(uiColor: .systemBackground)
+    }
+}
+
+// MARK: - Game Row
+
+struct GameRow: View {
+    let game: Game
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Artwork thumbnail
+            GameArtworkView(url: game.artUrl, cornerRadius: 10, aspectRatio: 1)
+                .frame(width: 80, height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+
+            // Info
+            VStack(alignment: .leading, spacing: 6) {
+                Text(game.title)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                HStack(spacing: 8) {
+                    StatusBadge(status: game.status)
+
+                    if let rating = game.rating, rating > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.yellow)
+                            Text("\(rating)/5")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                if let hours = game.hours, hours > 0 {
+                    Text(hours == hours.rounded() ? "\(Int(hours))h played" : String(format: "%.1fh played", hours))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.quaternary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+                }
+        }
     }
 }
 
@@ -264,67 +355,5 @@ struct FilterPill: View {
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.3), value: isSelected)
-    }
-}
-
-// MARK: - Game Card
-
-struct GameCard: View {
-    let game: Game
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Artwork
-            ZStack(alignment: .topTrailing) {
-                GameArtworkView(url: game.artUrl, cornerRadius: 0, aspectRatio: 3/4)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-
-                StatusBadge(status: game.status)
-                    .padding(8)
-            }
-
-            // Info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(game.title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .lineLimit(2)
-
-                HStack(spacing: 4) {
-                    if let platform = game.platform, !platform.isEmpty {
-                        Text(platform)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    if let rating = game.rating, rating > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.yellow)
-                            Text("\(rating)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                if let hours = game.hours, hours > 0 {
-                    Text(game.displayHours)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(10)
-        }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
     }
 }

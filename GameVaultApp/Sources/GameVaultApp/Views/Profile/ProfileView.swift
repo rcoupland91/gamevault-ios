@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @ObservedObject var authVM: AuthViewModel
+    @AppStorage("appearance_mode") private var appearanceMode = "system"
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var show2FASetup = false
@@ -96,6 +97,38 @@ struct ProfileView: View {
                                         .padding(.bottom, 10)
                                 }
                             }
+                        }
+
+                        // Appearance section
+                        settingsSection(title: "Appearance") {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.indigo)
+                                        .frame(width: 32, height: 32)
+                                    Image(systemName: "circle.lefthalf.filled")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(.white)
+                                }
+                                .padding(.leading, 4)
+
+                                Text("Theme")
+                                    .font(.subheadline)
+
+                                Spacer()
+
+                                Picker("", selection: $appearanceMode) {
+                                    Text("System").tag("system")
+                                    Text("Light").tag("light")
+                                    Text("Dark").tag("dark")
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 180)
+                                .padding(.trailing, 4)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 12)
                         }
 
                         // Server section

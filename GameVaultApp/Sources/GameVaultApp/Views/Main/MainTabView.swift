@@ -65,35 +65,47 @@ struct NowPlayingView: View {
                 } else if vm.games.isEmpty {
                     emptyState
                 } else {
-                    ScrollView(showsIndicators: false) {
-                        LazyVStack(spacing: 12) {
-                            ForEach(vm.games) { game in
-                                NowPlayingRow(game: game)
-                                    .onTapGesture { selectedGame = game }
-                                    .contextMenu {
-                                        Button {
-                                            Task { await vm.updateGameStatus(game: game, newStatus: .played) }
-                                        } label: {
-                                            Label("Mark as Completed", systemImage: "checkmark.circle.fill")
-                                        }
-                                        Button {
-                                            Task { await vm.updateGameStatus(game: game, newStatus: .toplay) }
-                                        } label: {
-                                            Label("Move to Backlog", systemImage: "bookmark")
-                                        }
-                                        Divider()
-                                        Button(role: .destructive) {
-                                            Task { await vm.deleteGame(id: game.id) }
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
+                    List {
+                        ForEach(vm.games) { game in
+                            NowPlayingRow(game: game)
+                                .contentShape(Rectangle())
+                                .onTapGesture { selectedGame = game }
+                                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                    Button {
+                                        Task { await vm.updateGameStatus(game: game, newStatus: .played) }
+                                    } label: {
+                                        Label("Completed", systemImage: "checkmark.circle.fill")
                                     }
-                            }
+                                    .tint(.blue)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        Task { await vm.deleteGame(id: game.id) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .contextMenu {
+                                    Button {
+                                        Task { await vm.updateGameStatus(game: game, newStatus: .played) }
+                                    } label: {
+                                        Label("Mark as Completed", systemImage: "checkmark.circle.fill")
+                                    }
+                                    Button {
+                                        Task { await vm.updateGameStatus(game: game, newStatus: .toplay) }
+                                    } label: {
+                                        Label("Move to Backlog", systemImage: "bookmark")
+                                    }
+                                    Divider()
+                                    Button(role: .destructive) {
+                                        Task { await vm.deleteGame(id: game.id) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .padding(.bottom, 80)
                     }
+                    .listStyle(.plain)
                     .refreshable { await vm.loadGames(status: .playing) }
                 }
             }
@@ -155,6 +167,7 @@ struct NowPlayingRow: View {
         HStack(spacing: 14) {
             GameArtworkView(url: game.artUrl, cornerRadius: 10, aspectRatio: 1)
                 .frame(width: 70, height: 70)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(game.title)
@@ -295,6 +308,7 @@ struct BacklogRow: View {
         HStack(spacing: 12) {
             GameArtworkView(url: game.artUrl, cornerRadius: 8, aspectRatio: 1)
                 .frame(width: 50, height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(game.title)

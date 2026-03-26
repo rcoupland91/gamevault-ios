@@ -24,6 +24,7 @@ struct GlassCard<Content: View>: View {
                             .stroke(Color.white.opacity(0.15), lineWidth: 1)
                     }
             }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }
 

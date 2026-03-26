@@ -5,6 +5,7 @@ struct AddGameView: View {
     @Environment(\.dismiss) private var dismiss
     var onAdded: (() -> Void)?
     @State private var mode: AddMode = .search
+    @State private var platformPickerGame: RAWGGame?
 
     enum AddMode: String, CaseIterable {
         case search = "Search"
@@ -116,12 +117,35 @@ struct AddGameView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(vm.searchResults) { game in
                             RAWGGameRow(game: game, isAdding: vm.isAdding) {
-                                Task { await vm.addGame(from: game) }
+                                let platforms = game.platforms ?? []
+                                if platforms.count > 1 {
+                                    platformPickerGame = game
+                                } else {
+                                    Task { await vm.addGame(from: game, platform: platforms.first) }
+                                }
                             }
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 80)
+                }
+                .confirmationDialog(
+                    "Which platform?",
+                    isPresented: Binding(
+                        get: { platformPickerGame != nil },
+                        set: { if !$0 { platformPickerGame = nil } }
+                    ),
+                    titleVisibility: .visible
+                ) {
+                    if let game = platformPickerGame {
+                        ForEach(game.platforms ?? [], id: \.self) { platform in
+                            Button(platform) {
+                                Task { await vm.addGame(from: game, platform: platform) }
+                                platformPickerGame = nil
+                            }
+                        }
+                        Button("Cancel", role: .cancel) { platformPickerGame = nil }
+                    }
                 }
             }
         }
@@ -229,6 +253,7 @@ struct RAWGGameRow: View {
         HStack(spacing: 12) {
             GameArtworkView(url: game.artUrl, cornerRadius: 10, aspectRatio: 1)
                 .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(game.title ?? "Unknown")

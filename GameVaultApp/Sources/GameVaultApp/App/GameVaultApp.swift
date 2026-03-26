@@ -3,11 +3,20 @@ import SwiftUI
 @main
 struct GameVaultApp: App {
     @StateObject private var authVM = AuthViewModel()
+    @AppStorage("appearance_mode") private var appearanceMode = "system"
 
     var body: some Scene {
         WindowGroup {
             RootView(authVM: authVM)
-                .preferredColorScheme(nil) // Respect system setting
+                .preferredColorScheme(colorScheme(for: appearanceMode))
+        }
+    }
+
+    private func colorScheme(for mode: String) -> ColorScheme? {
+        switch mode {
+        case "light": return .light
+        case "dark":  return .dark
+        default:      return nil
         }
     }
 }

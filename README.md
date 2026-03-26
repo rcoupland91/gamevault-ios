@@ -2,16 +2,26 @@
 
 A native Swift iOS app for [GameVault](https://github.com/rcoupland91/gamevault) — your self-hosted personal game library manager. Built with SwiftUI and Liquid Glass design for iOS 17+.
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/dashboard.png" width="19%" alt="Dashboard" />
+  <img src="screenshots/playing.png" width="19%" alt="Now Playing" />
+  <img src="screenshots/library.png" width="19%" alt="Library" />
+  <img src="screenshots/backlog.png" width="19%" alt="Backlog" />
+  <img src="screenshots/profile.png" width="19%" alt="Profile" />
+</p>
+
 ## Features
 
-- **Full Authentication** — Login, register, two-factor auth (TOTP + email OTP), JWT with auto-refresh via Keychain
+- **Full Authentication** — Login, register, two-factor auth (TOTP + email OTP), OIDC/SSO, JWT with auto-refresh via Keychain
 - **Dashboard** — Live stats: total games, hours played, platform breakdown, genre breakdown, recent activity
-- **Now Playing** — Quick access to currently playing games with swipe actions
-- **Game Library** — Grid view of all games with status filtering (Playing / Completed / Backlog), search, and sort
+- **Now Playing** — Quick access to currently playing games; swipe right to complete, swipe left to delete
+- **Game Library** — List view with status filtering (Playing / Completed / Backlog), search, sort, and swipe actions
 - **Backlog** — List view with swipe-to-play gesture
-- **Game Detail** — Full editing: title, status, rating (★★★★★), hours, platform, genre, review, notes
-- **Add Games** — Search RAWG.io game database or add manually
-- **Profile** — Edit profile, change password, 2FA status, server configuration
+- **Game Detail** — Full editing: title, status, rating (★★★★★), hours, platform picker, genre, review, notes
+- **Add Games** — Search RAWG.io game database (with platform picker) or add manually
+- **Profile** — Edit profile, change password, 2FA status, SSO/password login toggle, server configuration
 - **Admin Panel** — User management (for admin accounts)
 - **Liquid Glass Design** — iOS 26 `.glassEffect()` with iOS 17/18 fallback using materials
 - **Real-time Sync** — All data pulled directly from your GameVault server API

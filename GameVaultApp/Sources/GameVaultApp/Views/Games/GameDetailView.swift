@@ -76,7 +76,7 @@ struct GameDetailView: View {
                         // Game details
                         GlassCard {
                             VStack(spacing: 16) {
-                                detailRow("Platform", icon: "display", binding: $vm.platform, placeholder: "e.g. PlayStation 5")
+                                platformRow
                                 Divider().opacity(0.5)
                                 detailRow("Genre", icon: "tag", binding: $vm.genre, placeholder: "e.g. Action RPG")
                                 Divider().opacity(0.5)
@@ -207,6 +207,7 @@ struct GameDetailView: View {
             HStack(alignment: .bottom, spacing: 16) {
                 GameArtworkView(url: vm.game.artUrl, cornerRadius: 12, aspectRatio: 3/4)
                     .frame(width: 90, height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .shadow(color: .black.opacity(0.2), radius: 10)
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -228,6 +229,50 @@ struct GameDetailView: View {
                 Spacer()
             }
             .padding(16)
+        }
+    }
+
+    // MARK: - Platform Row
+
+    private var platformRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            label("Platform")
+            if !vm.availablePlatforms.isEmpty {
+                Menu {
+                    ForEach(vm.availablePlatforms, id: \.self) { platform in
+                        Button(platform) { vm.platform = platform }
+                    }
+                    if !vm.availablePlatforms.contains(vm.platform) && !vm.platform.isEmpty {
+                        Divider()
+                        Button(vm.platform) { }
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "display")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                        Text(vm.platform.isEmpty ? "Select platform" : vm.platform)
+                            .foregroundStyle(vm.platform.isEmpty ? .secondary : .primary)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                            }
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                GlassTextField(placeholder: "e.g. PlayStation 5", text: $vm.platform, icon: "display", autocapitalization: .words, autocorrect: false)
+            }
         }
     }
 

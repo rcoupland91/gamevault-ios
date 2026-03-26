@@ -204,6 +204,7 @@ struct DashboardView: View {
                         HStack(spacing: 12) {
                             GameArtworkView(url: game.artUrl, cornerRadius: 8, aspectRatio: 1)
                                 .frame(width: 50, height: 50)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(game.title)
