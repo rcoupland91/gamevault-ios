@@ -155,6 +155,22 @@ final class AuthService {
         let _: EmptyResponse = try await api.request("/auth/2fa/email/toggle", method: .post, body: body)
     }
 
+    // MARK: - Password Login Toggle
+
+    struct PasswordLoginToggleResponse: Codable {
+        let passwordLoginDisabled: Bool
+        enum CodingKeys: String, CodingKey {
+            case passwordLoginDisabled = "password_login_disabled"
+        }
+    }
+
+    func togglePasswordLogin(disabled: Bool) async throws -> Bool {
+        struct ToggleRequest: Encodable { let disabled: Bool }
+        let body = ToggleRequest(disabled: disabled)
+        let response: PasswordLoginToggleResponse = try await api.request("/auth/password-login/toggle", method: .post, body: body)
+        return response.passwordLoginDisabled
+    }
+
     // MARK: - Public Settings
 
     func fetchPublicSettings() async throws -> PublicSettings {

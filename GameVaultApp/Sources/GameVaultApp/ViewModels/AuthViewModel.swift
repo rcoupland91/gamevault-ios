@@ -156,6 +156,11 @@ final class AuthViewModel: ObservableObject {
         currentUser = try await auth.updateProfile(username: username, currentPassword: currentPassword, newPassword: newPassword)
     }
 
+    func togglePasswordLogin(disabled: Bool) async throws {
+        let result = try await auth.togglePasswordLogin(disabled: disabled)
+        currentUser?.passwordLoginDisabled = result
+    }
+
     // MARK: - Logout
 
     func logout() {

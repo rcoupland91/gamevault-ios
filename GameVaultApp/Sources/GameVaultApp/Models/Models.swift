@@ -29,6 +29,8 @@ struct User: Codable, Identifiable {
     let createdAt: String?
     var totpEnabled: Bool?
     var emailOtpEnabled: Bool?
+    var passwordLoginDisabled: Bool?
+    var oidcLinked: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, username, email
@@ -38,6 +40,8 @@ struct User: Codable, Identifiable {
         case createdAt = "created_at"
         case totpEnabled = "totp_enabled"
         case emailOtpEnabled = "email_otp_enabled"
+        case passwordLoginDisabled = "password_login_disabled"
+        case oidcLinked = "oidc_linked"
     }
 }
 

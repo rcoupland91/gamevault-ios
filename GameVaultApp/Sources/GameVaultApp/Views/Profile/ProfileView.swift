@@ -8,6 +8,8 @@ struct ProfileView: View {
     @State private var showServerSetup = false
     @State private var showLogoutConfirm = false
     @State private var showAdminPanel = false
+    @State private var isTogglingPasswordLogin = false
+    @State private var passwordLoginToggleError: String?
 
     var body: some View {
         NavigationStack {
@@ -31,6 +33,68 @@ struct ProfileView: View {
                             Divider().padding(.leading, 52)
                             SettingsRow(icon: "shield.fill", title: "Two-Factor Authentication", color: .green) {
                                 show2FASetup = true
+                            }
+                        }
+
+                        // Security section — only shown when an SSO account is linked
+                        if authVM.currentUser?.oidcLinked == true {
+                            settingsSection(title: "Security") {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.orange)
+                                            .frame(width: 32, height: 32)
+                                        Image(systemName: "key.slash.fill")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(.white)
+                                    }
+                                    .padding(.leading, 4)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Disable Password Login")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.primary)
+                                        Text("Require SSO to sign in")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    if isTogglingPasswordLogin {
+                                        ProgressView().tint(.orange)
+                                    } else {
+                                        Toggle("", isOn: Binding(
+                                            get: { authVM.currentUser?.passwordLoginDisabled == true },
+                                            set: { newValue in
+                                                isTogglingPasswordLogin = true
+                                                passwordLoginToggleError = nil
+                                                Task {
+                                                    do {
+                                                        try await authVM.togglePasswordLogin(disabled: newValue)
+                                                    } catch {
+                                                        passwordLoginToggleError = error.localizedDescription
+                                                    }
+                                                    isTogglingPasswordLogin = false
+                                                }
+                                            }
+                                        ))
+                                        .labelsHidden()
+                                        .tint(.orange)
+                                    }
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+
+                                if let err = passwordLoginToggleError {
+                                    Divider().padding(.leading, 52)
+                                    Text(err)
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                        .padding(.horizontal, 16)
+                                        .padding(.bottom, 10)
+                                }
                             }
                         }
 
