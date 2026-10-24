@@ -2,17 +2,14 @@ import SwiftUI
 
 struct TwoFactorView: View {
     @ObservedObject var authVM: AuthViewModel
+    @Environment(ThemeManager.self) private var theme
     @FocusState private var codeFocused: Bool
 
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Color(uiColor: .systemBackground), Color.indigo.opacity(0.08)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .ignoresSafeArea()
+                twoFactorBackground
+                    .ignoresSafeArea()
 
                 VStack(spacing: 32) {
                     Spacer()
@@ -21,13 +18,13 @@ struct TwoFactorView: View {
                     VStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.indigo.opacity(0.15))
+                                .fill(theme.accentColor.opacity(0.15))
                                 .frame(width: 90, height: 90)
                             Image(systemName: "lock.shield.fill")
                                 .font(.system(size: 40))
-                                .foregroundStyle(LinearGradient(colors: [.indigo, .purple], startPoint: .top, endPoint: .bottom))
+                                .foregroundStyle(theme.accentColor)
                         }
-                        .shadow(color: .indigo.opacity(0.3), radius: 16)
+                        .shadow(color: theme.accentColor.opacity(0.3), radius: 16)
 
                         Text("Two-Factor Authentication")
                             .font(.title3)
@@ -61,7 +58,7 @@ struct TwoFactorView: View {
                                     .padding(.vertical, 10)
                                     .background(
                                         authVM.selected2FAMethod == method
-                                        ? Color.indigo
+                                        ? Color.accentColor
                                         : Color.clear
                                     )
                                     .foregroundStyle(
@@ -80,7 +77,7 @@ struct TwoFactorView: View {
                     }
 
                     // Code Input
-                    GlassCard(padding: 20) {
+                    VaultCard(cornerRadius: 26, padding: 20) {
                         VStack(spacing: 20) {
                             // OTP-style digit display
                             TextField("000000", text: $authVM.twoFACode)
@@ -117,7 +114,7 @@ struct TwoFactorView: View {
                                 }
                             }
 
-                            GlassButton(
+                            VaultButton(
                                 title: "Verify",
                                 icon: "checkmark.shield",
                                 action: { Task { await authVM.verify2FA() } },
@@ -140,7 +137,7 @@ struct TwoFactorView: View {
                                 Text("Resend Code")
                                     .font(.subheadline)
                             }
-                            .foregroundStyle(.indigo)
+                            .foregroundStyle(theme.accentColor)
                         }
                     }
 
@@ -158,6 +155,24 @@ struct TwoFactorView: View {
                 }
             }
             .onAppear { codeFocused = true }
+        }
+    }
+
+    private var twoFactorBackground: some View {
+        ZStack {
+            Color(uiColor: .systemGroupedBackground)
+
+            Circle()
+                .fill(theme.accentColor.opacity(0.14))
+                .frame(width: 250, height: 250)
+                .blur(radius: 44)
+                .offset(x: -130, y: -240)
+
+            Circle()
+                .fill(Color.blue.opacity(0.10))
+                .frame(width: 210, height: 210)
+                .blur(radius: 38)
+                .offset(x: 140, y: -120)
         }
     }
 }

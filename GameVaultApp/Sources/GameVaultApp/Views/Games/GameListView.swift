@@ -1,359 +1,427 @@
 import SwiftUI
 
-struct GameLibraryView: View {
+// MARK: - Now Playing
+
+struct NowPlayingView: View {
     @StateObject private var vm = GameListViewModel()
-    @State private var selectedStatus: GameStatus? = nil
     @State private var showAddGame = false
-    @State private var selectedGame: Game?
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                backgroundGradient.ignoresSafeArea()
-
-                VStack(spacing: 0) {
-                    // Status filter pills
-                    statusFilterBar
-                        .padding(.vertical, 8)
-
-                    // Search
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(.secondary)
-                        TextField("Search games...", text: $vm.searchText)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .onChange(of: vm.searchText) { _, _ in
-                                Task { await vm.loadGames(status: selectedStatus) }
-                            }
-                        if !vm.searchText.isEmpty {
-                            Button { vm.searchText = "" } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-
-                    // Content
-                    if let error = vm.error {
-                        ErrorBanner(message: error) { vm.error = nil }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
-                    }
-
-                    if vm.isLoading && vm.games.isEmpty {
-                        Spacer()
-                        ProgressView().tint(.indigo)
-                        Spacer()
-                    } else if vm.filteredGames.isEmpty {
-                        emptyStateView
-                    } else {
-                        gameList
-                    }
+            GameStatusListView(vm: vm, status: .playing, showAddGame: $showAddGame)
+                .navigationTitle("Now Playing")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) { addButton }
                 }
-            }
-            .navigationTitle("Library")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAddGame = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(Color.indigo)
-                    }
+                .sheet(isPresented: $showAddGame) {
+                    AddGameView { Task { await vm.loadGames(status: .playing) } }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    sortMenu
-                }
-            }
-            .sheet(isPresented: $showAddGame) {
-                AddGameView {
-                    Task { await vm.loadGames(status: selectedStatus) }
-                }
-            }
-            .sheet(item: $selectedGame) { game in
-                GameDetailView(game: game) {
-                    Task { await vm.loadGames(status: selectedStatus) }
-                }
-            }
-            .task { await vm.loadGames(status: selectedStatus) }
-            .onChange(of: selectedStatus) { _, newStatus in
-                Task { await vm.loadGames(status: newStatus) }
-            }
+                .task { await vm.loadGames(status: .playing) }
         }
     }
 
-    // MARK: - Status Filter
+    private var addButton: some View {
+        Button { showAddGame = true } label: {
+            Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(Color.accentColor)
+        }
+    }
+}
 
-    private var statusFilterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                FilterPill(title: "All", icon: "square.grid.2x2", isSelected: selectedStatus == nil) {
-                    selectedStatus = nil
+// MARK: - Library (Completed)
+
+struct GameLibraryView: View {
+    @StateObject private var vm = GameListViewModel()
+    @State private var showAddGame = false
+
+    var body: some View {
+        NavigationStack {
+            GameStatusListView(vm: vm, status: .played, showAddGame: $showAddGame)
+                .navigationTitle("Completed")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) { addButton }
                 }
-                ForEach(GameStatus.allCases) { status in
-                    FilterPill(title: status.displayName, icon: status.icon, isSelected: selectedStatus == status) {
-                        selectedStatus = selectedStatus == status ? nil : status
-                    }
+                .sheet(isPresented: $showAddGame) {
+                    AddGameView { Task { await vm.loadGames(status: .played) } }
                 }
-            }
-            .padding(.horizontal, 16)
+                .task { await vm.loadGames(status: .played) }
         }
     }
 
-    // MARK: - Game List
+    private var addButton: some View {
+        Button { showAddGame = true } label: {
+            Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(Color.accentColor)
+        }
+    }
+}
+
+// MARK: - Backlog
+
+struct BacklogView: View {
+    @StateObject private var vm = GameListViewModel()
+    @State private var showAddGame = false
+
+    var body: some View {
+        NavigationStack {
+            GameStatusListView(vm: vm, status: .toplay, showAddGame: $showAddGame)
+                .navigationTitle("Backlog")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) { addButton }
+                }
+                .sheet(isPresented: $showAddGame) {
+                    AddGameView { Task { await vm.loadGames(status: .toplay) } }
+                }
+                .task { await vm.loadGames(status: .toplay) }
+        }
+    }
+
+    private var addButton: some View {
+        Button { showAddGame = true } label: {
+            Image(systemName: "plus.circle.fill").font(.title3).foregroundStyle(Color.accentColor)
+        }
+    }
+}
+
+// MARK: - Shared Status List View
+
+private struct GameStatusListView: View {
+    @ObservedObject var vm: GameListViewModel
+    let status: GameStatus
+    @Binding var showAddGame: Bool
+    @Environment(ThemeManager.self) private var theme
+    @State private var selectedGame: Game?
+
+    private var displayedGames: [Game] {
+        vm.filteredGames
+    }
+
+    var body: some View {
+        ZStack {
+            listBackground
+                .ignoresSafeArea()
+
+            Group {
+                if vm.isLoading && displayedGames.isEmpty {
+                    loadingState
+                } else if displayedGames.isEmpty {
+                    emptyState
+                } else {
+                    gameList
+                }
+            }
+        }
+        .searchable(text: $vm.searchText, prompt: "Search games…")
+        .onChange(of: vm.searchText) { _, _ in
+            Task { await vm.loadGames(status: status) }
+        }
+        .navigationDestination(item: $selectedGame) { game in
+            GameDetailView(game: game, onSave: {
+                Task { await vm.loadGames(status: status) }
+            })
+        }
+    }
+
+    private var loadingState: some View {
+        VStack(spacing: 16) {
+            summaryCard
+                .redacted(reason: .placeholder)
+
+            ForEach(0..<6, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.secondary.opacity(0.1))
+                    .frame(height: 88)
+                    .redacted(reason: .placeholder)
+                    .shimmering()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 18) {
+            summaryCard
+
+            EmptyStateView(
+                icon: status.icon,
+                title: emptyTitle,
+                subtitle: emptySubtitle,
+                actionTitle: "Add Game",
+                action: { showAddGame = true }
+            )
+        }
+        .padding(.horizontal, 20)
+    }
 
     private var gameList: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 10) {
-                ForEach(vm.filteredGames) { game in
-                    GameRow(game: game)
-                        .onTapGesture { selectedGame = game }
-                        .contextMenu {
-                            statusMenuItems(game: game)
-                            Divider()
-                            Button(role: .destructive) {
-                                Task { await vm.deleteGame(id: game.id) }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            promoteSwipeButton(game: game)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                Task { await vm.deleteGame(id: game.id) }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
+            LazyVStack(alignment: .leading, spacing: 14) {
+                summaryCard
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        sortPill("Recent", key: "updated_at")
+                        sortPill("Title", key: "title")
+                        sortPill("Rating", key: "rating")
+                        sortPill("Hours", key: "hours")
+                    }
+                }
+
+                ForEach(displayedGames) { game in
+                    SwipeableGameRow(
+                        action: primarySwipeConfig(for: game),
+                        onTap: { selectedGame = game }
+                    ) {
+                        GameRowCard(game: game)
+                    }
+                    .contextMenu {
+                        gameContextMenu(game)
+                    }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
-            .padding(.bottom, 88)
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 40)
         }
-        .refreshable { await vm.loadGames(status: selectedStatus) }
+        .refreshable {
+            await vm.loadGames(status: status)
+        }
+    }
+
+    private func sortPill(_ label: String, key: String) -> some View {
+        FilterPill(title: label, isSelected: vm.sortBy == key) {
+            vm.sortBy = key
+            Task { await vm.loadGames(status: status) }
+        }
     }
 
     @ViewBuilder
-    private func promoteSwipeButton(game: Game) -> some View {
+    private func gameContextMenu(_ game: Game) -> some View {
+        Menu("Move to…") {
+            ForEach(GameStatus.allCases.filter { $0 != game.status }) { s in
+                Button {
+                    Task { await vm.updateGameStatus(game: game, newStatus: s) }
+                } label: {
+                    Label(s.displayName, systemImage: s.icon)
+                }
+            }
+        }
+        Divider()
+        Button(role: .destructive) {
+            Task { await vm.deleteGame(id: game.id) }
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+    }
+
+    private func primarySwipeConfig(for game: Game) -> SwipeActionConfig? {
         switch game.status {
         case .toplay:
-            Button {
+            return SwipeActionConfig(
+                title: "Move to Playing",
+                systemImage: "gamecontroller.fill",
+                tint: .green
+            ) {
                 Task { await vm.updateGameStatus(game: game, newStatus: .playing) }
-            } label: {
-                Label("Playing", systemImage: "gamecontroller.fill")
             }
-            .tint(.green)
         case .playing:
-            Button {
+            return SwipeActionConfig(
+                title: "Mark Completed",
+                systemImage: "checkmark.circle.fill",
+                tint: .blue
+            ) {
                 Task { await vm.updateGameStatus(game: game, newStatus: .played) }
-            } label: {
-                Label("Completed", systemImage: "checkmark.circle.fill")
             }
-            .tint(.blue)
         case .played:
-            EmptyView()
+            return nil
         }
     }
 
-    @ViewBuilder
-    private func statusMenuItems(game: Game) -> some View {
-        ForEach(GameStatus.allCases) { status in
-            if status != game.status {
-                Button {
-                    Task { await vm.updateGameStatus(game: game, newStatus: status) }
-                } label: {
-                    Label("Move to \(status.displayName)", systemImage: status.icon)
-                }
-            }
+    private var emptyTitle: String {
+        switch status {
+        case .playing: return "Nothing playing yet"
+        case .played:  return "No completed games"
+        case .toplay:  return "Backlog is clear"
         }
     }
 
-    // MARK: - Sort Menu
+    private var emptySubtitle: String {
+        switch status {
+        case .playing: return "Add the game you're currently playing to track your progress."
+        case .played:  return "Mark games as completed to build your history."
+        case .toplay:  return "Add games you want to play to build your backlog."
+        }
+    }
 
-    private var sortMenu: some View {
-        Menu {
-            ForEach([
-                ("updated_at", "Recently Updated"),
-                ("title", "Title"),
-                ("rating", "Rating"),
-                ("hours", "Hours Played"),
-                ("created_at", "Date Added")
-            ], id: \.0) { key, label in
-                Button {
-                    if vm.sortBy == key {
-                        vm.sortOrder = vm.sortOrder == "desc" ? "asc" : "desc"
-                    } else {
-                        vm.sortBy = key
-                        vm.sortOrder = "desc"
+    private var countLabel: String {
+        let count = displayedGames.count
+        if count == 1 { return "1 game" }
+        return "\(count) games"
+    }
+
+    private var statusSummary: String {
+        switch status {
+        case .playing: return "Keep your current obsession front and center."
+        case .played: return "Your finished games, reviews, and personal history live here."
+        case .toplay: return "A shortlist of what to dive into next."
+        }
+    }
+
+    private var statusTint: Color {
+        switch status {
+        case .playing: return .green
+        case .played: return .blue
+        case .toplay: return .orange
+        }
+    }
+
+    private var summaryCard: some View {
+        VaultCard(cornerRadius: 26, padding: 18) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(status.displayName)
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                        Text(statusSummary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
-                    Task { await vm.loadGames(status: selectedStatus) }
-                } label: {
-                    HStack {
-                        Text(label)
-                        if vm.sortBy == key {
-                            Image(systemName: vm.sortOrder == "desc" ? "arrow.down" : "arrow.up")
-                        }
-                    }
+                    Spacer(minLength: 12)
+                    Image(systemName: status.icon)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(statusTint)
+                        .frame(width: 44, height: 44)
+                        .background(statusTint.opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-            }
-        } label: {
-            Image(systemName: "arrow.up.arrow.down")
-                .foregroundStyle(.indigo)
-        }
-    }
-
-    // MARK: - Empty State
-
-    private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Image(systemName: "gamecontroller")
-                .font(.system(size: 70))
-                .foregroundStyle(.quaternary)
-            VStack(spacing: 8) {
-                Text(vm.searchText.isEmpty ? "No Games" : "No Results")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Text(vm.searchText.isEmpty
-                    ? "Add your first game to start building your library"
-                    : "No games match \"\(vm.searchText)\"")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            if vm.searchText.isEmpty {
-                Button {
-                    showAddGame = true
-                } label: {
-                    Label("Add Game", systemImage: "plus")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .background(Color.indigo)
-                        .clipShape(Capsule())
-                }
-            }
-            Spacer()
-        }
-        .padding()
-    }
-
-    private var backgroundGradient: some View {
-        Color(uiColor: .systemBackground)
-    }
-}
-
-// MARK: - Game Row
-
-struct GameRow: View {
-    let game: Game
-
-    var body: some View {
-        HStack(spacing: 14) {
-            // Artwork thumbnail
-            GameArtworkView(url: game.artUrl, cornerRadius: 10, aspectRatio: 1)
-                .frame(width: 80, height: 80)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
-
-            // Info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(game.title)
-                    .font(.body)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
 
                 HStack(spacing: 8) {
-                    StatusBadge(status: game.status)
-
-                    if let rating = game.rating, rating > 0 {
-                        HStack(spacing: 3) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.yellow)
-                            Text("\(rating)/5")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                if let hours = game.hours, hours > 0 {
-                    Text(hours == hours.rounded() ? "\(Int(hours))h played" : String(format: "%.1fh played", hours))
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                    InfoChip(text: countLabel, icon: "books.vertical")
+                    InfoChip(text: vm.sortBy.replacingOccurrences(of: "_", with: " ").capitalized, icon: "arrow.up.arrow.down")
                 }
             }
-
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.quaternary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.primary.opacity(0.07), lineWidth: 1)
-                }
+    }
+
+    private var listBackground: some View {
+        ZStack {
+            Color(uiColor: .systemGroupedBackground)
+
+            Circle()
+                .fill(statusTint.opacity(0.14))
+                .frame(width: 240, height: 240)
+                .blur(radius: 45)
+                .offset(x: -140, y: -260)
+
+            Circle()
+                .fill(theme.accentColor.opacity(0.10))
+                .frame(width: 220, height: 220)
+                .blur(radius: 40)
+                .offset(x: 150, y: -170)
         }
     }
 }
 
-// MARK: - Filter Pill
-
-struct FilterPill: View {
+private struct SwipeActionConfig {
     let title: String
-    let icon: String
-    let isSelected: Bool
+    let systemImage: String
+    let tint: Color
     let action: () -> Void
+}
+
+private struct SwipeableGameRow<Content: View>: View {
+    let action: SwipeActionConfig?
+    let onTap: () -> Void
+    let content: Content
+
+    @State private var dragOffset: CGFloat = 0
+    @State private var isTriggering = false
+
+    private let revealWidth: CGFloat = 118
+    private let triggerThreshold: CGFloat = 84
+
+    init(
+        action: SwipeActionConfig?,
+        onTap: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.action = action
+        self.onTap = onTap
+        self.content = content()
+    }
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.caption)
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(isSelected ? .semibold : .regular)
+        ZStack(alignment: .leading) {
+            if let action {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(action.tint.opacity(0.18))
+
+                HStack(spacing: 10) {
+                    Image(systemName: action.systemImage)
+                        .font(.headline.weight(.bold))
+                    Text(action.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                }
+                .foregroundStyle(action.tint)
+                .padding(.leading, 18)
+                .opacity(min(max(dragOffset / revealWidth, 0.15), 1))
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background {
-                if isSelected {
-                    Capsule()
-                        .fill(Color.indigo)
+
+            Button(action: onTap) {
+                content
+            }
+            .buttonStyle(.plain)
+            .offset(x: dragOffset)
+            .gesture(dragGesture)
+        }
+        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: dragOffset)
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 12, coordinateSpace: .local)
+            .onChanged { value in
+                guard action != nil, !isTriggering else { return }
+                dragOffset = max(0, min(value.translation.width, revealWidth))
+            }
+            .onEnded { value in
+                guard let action, !isTriggering else {
+                    dragOffset = 0
+                    return
+                }
+
+                let dragWidth = max(value.translation.width, value.predictedEndTranslation.width)
+                let shouldTrigger = dragWidth > triggerThreshold
+
+                if shouldTrigger {
+                    isTriggering = true
+                    dragOffset = revealWidth
+                    action.action()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                        dragOffset = 0
+                        isTriggering = false
+                    }
                 } else {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.07))
+                    dragOffset = 0
                 }
             }
-            .foregroundStyle(isSelected ? .white : .primary)
-        }
-        .buttonStyle(.plain)
-        .animation(.spring(response: 0.3), value: isSelected)
+    }
+}
+
+// MARK: - Shimmer
+
+private extension View {
+    func shimmering() -> some View {
+        self.overlay(
+            LinearGradient(
+                colors: [.clear, Color.white.opacity(0.3), .clear],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .offset(x: -200)
+        )
     }
 }

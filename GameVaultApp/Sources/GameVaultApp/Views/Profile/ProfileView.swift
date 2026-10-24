@@ -2,635 +2,441 @@ import SwiftUI
 
 struct ProfileView: View {
     @ObservedObject var authVM: AuthViewModel
-    @AppStorage("appearance_mode") private var appearanceMode = "system"
+    @Environment(ThemeManager.self) private var theme
+    @AppStorage("app_mode") private var appModeRaw = "server"
+    @AppStorage("has_completed_onboarding") private var hasCompletedOnboarding = true
+
     @State private var showEditProfile = false
     @State private var showChangePassword = false
     @State private var show2FASetup = false
     @State private var showServerSetup = false
     @State private var showLogoutConfirm = false
-    @State private var showAdminPanel = false
-    @State private var isTogglingPasswordLogin = false
-    @State private var passwordLoginToggleError: String?
+    @State private var showResetOnboarding = false
+    @State private var showLocalSettings = false
+
+    private var appMode: AppMode { AppMode(rawValue: appModeRaw) ?? .server }
+    private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 20) {
-                        // Profile header
-                        profileHeader
-
-                        // Account section
-                        settingsSection(title: "Account") {
-                            SettingsRow(icon: "person.fill", title: "Edit Profile", color: .indigo) {
-                                showEditProfile = true
-                            }
-                            Divider().padding(.leading, 52)
-                            SettingsRow(icon: "lock.fill", title: "Change Password", color: .blue) {
-                                showChangePassword = true
-                            }
-                            Divider().padding(.leading, 52)
-                            SettingsRow(icon: "shield.fill", title: "Two-Factor Authentication", color: .green) {
-                                show2FASetup = true
-                            }
-                        }
-
-                        // Security section — only shown when an SSO account is linked
-                        if authVM.currentUser?.oidcLinked == true {
-                            settingsSection(title: "Security") {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.orange)
-                                            .frame(width: 32, height: 32)
-                                        Image(systemName: "key.slash.fill")
-                                            .font(.caption)
-                                            .fontWeight(.semibold)
-                                            .foregroundStyle(.white)
-                                    }
-                                    .padding(.leading, 4)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Disable Password Login")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.primary)
-                                        Text("Require SSO to sign in")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    Spacer()
-
-                                    if isTogglingPasswordLogin {
-                                        ProgressView().tint(.orange)
-                                    } else {
-                                        Toggle("", isOn: Binding(
-                                            get: { authVM.currentUser?.passwordLoginDisabled == true },
-                                            set: { newValue in
-                                                isTogglingPasswordLogin = true
-                                                passwordLoginToggleError = nil
-                                                Task {
-                                                    do {
-                                                        try await authVM.togglePasswordLogin(disabled: newValue)
-                                                    } catch {
-                                                        passwordLoginToggleError = error.localizedDescription
-                                                    }
-                                                    isTogglingPasswordLogin = false
-                                                }
-                                            }
-                                        ))
-                                        .labelsHidden()
-                                        .tint(.orange)
-                                    }
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 12)
-
-                                if let err = passwordLoginToggleError {
-                                    Divider().padding(.leading, 52)
-                                    Text(err)
-                                        .font(.caption)
-                                        .foregroundStyle(.red)
-                                        .padding(.horizontal, 16)
-                                        .padding(.bottom, 10)
-                                }
-                            }
-                        }
-
-                        // Appearance section
-                        settingsSection(title: "Appearance") {
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.indigo)
-                                        .frame(width: 32, height: 32)
-                                    Image(systemName: "circle.lefthalf.filled")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(.white)
-                                }
-                                .padding(.leading, 4)
-
-                                Text("Theme")
-                                    .font(.subheadline)
-
-                                Spacer()
-
-                                Picker("", selection: $appearanceMode) {
-                                    Text("System").tag("system")
-                                    Text("Light").tag("light")
-                                    Text("Dark").tag("dark")
-                                }
-                                .pickerStyle(.segmented)
-                                .frame(width: 180)
-                                .padding(.trailing, 4)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 12)
-                        }
-
-                        // Server section
-                        settingsSection(title: "Server") {
-                            SettingsRow(icon: "server.rack", title: "Server Settings", color: .purple) {
-                                showServerSetup = true
-                            }
-                            if let url = UserDefaults.standard.string(forKey: "server_url"), !url.isEmpty {
-                                Divider().padding(.leading, 52)
-                                HStack {
-                                    Spacer().frame(width: 52)
-                                    Text(url)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                        .truncationMode(.middle)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 8)
-                                .padding(.trailing, 16)
-                            }
-                        }
-
-                        // Admin section
-                        if authVM.currentUser?.isAdmin == true {
-                            settingsSection(title: "Administration") {
-                                SettingsRow(icon: "person.3.fill", title: "User Management", color: .orange) {
-                                    showAdminPanel = true
-                                }
-                            }
-                        }
-
-                        // Stats
-                        if let user = authVM.currentUser, let createdAt = user.createdAt {
-                            settingsSection(title: "Account Info") {
-                                infoRow("User ID", value: String(user.id.prefix(8)) + "...")
-                                Divider().padding(.leading, 16)
-                                infoRow("Member since", value: formatDate(createdAt))
-                                if user.isAdmin == true {
-                                    Divider().padding(.leading, 16)
-                                    HStack {
-                                        Text("Role")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                        Spacer()
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "star.fill")
-                                                .font(.caption)
-                                                .foregroundStyle(.yellow)
-                                            Text("Administrator")
-                                                .font(.subheadline)
-                                                .fontWeight(.medium)
-                                                .foregroundStyle(.yellow)
-                                        }
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                }
-                            }
-                        }
-
-                        // Logout
-                        GlassButton(
-                            title: "Sign Out",
-                            icon: "rectangle.portrait.and.arrow.right",
-                            action: { showLogoutConfirm = true },
-                            isDestructive: true,
-                            style: .secondary
-                        )
-                        .padding(.horizontal, 16)
-
-                        Spacer(minLength: 80)
-                    }
-                    .padding(.top, 8)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    profileHeader
+                    themeSection
+                    if appMode == .server { serverSection } else { localSettingsSection }
+                    appSection
+                    dangerSection
+                    Spacer(minLength: 40)
                 }
+                .padding(.top, 8)
+                .padding(.horizontal, 20)
             }
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(isPresented: $showEditProfile) {
-                EditProfileView(authVM: authVM)
-            }
-            .sheet(isPresented: $showChangePassword) {
-                ChangePasswordView(authVM: authVM)
-            }
-            .sheet(isPresented: $show2FASetup) {
-                TwoFAManagementView()
-            }
-            .sheet(isPresented: $showServerSetup) {
-                ServerSetupView(authVM: authVM)
-            }
-            .sheet(isPresented: $showAdminPanel) {
-                AdminPanelView()
-            }
-            .confirmationDialog("Sign out of GameVault?", isPresented: $showLogoutConfirm, titleVisibility: .visible) {
-                Button("Sign Out", role: .destructive) { authVM.logout() }
-                Button("Cancel", role: .cancel) {}
-            }
         }
+        .sheet(isPresented: $showEditProfile) { EditProfileSheet(authVM: authVM) }
+        .sheet(isPresented: $showChangePassword) { ChangePasswordSheet(authVM: authVM) }
+        .sheet(isPresented: $showServerSetup) { ServerSetupView(authVM: authVM) }
+        .sheet(isPresented: $showLocalSettings) { LocalSettingsSheet() }
+        .confirmationDialog("Sign Out?", isPresented: $showLogoutConfirm, titleVisibility: .visible) {
+            Button("Sign Out", role: .destructive) { authVM.logout() }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("You'll need to sign in again to access your library.") }
     }
 
-    // MARK: - Profile Header
+    // MARK: - Header
 
     private var profileHeader: some View {
-        GlassCard {
+        VaultCard {
             HStack(spacing: 16) {
-                // Avatar
                 ZStack {
-                    Circle()
-                        .fill(LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .frame(width: 70, height: 70)
+                    Circle().fill(theme.accentColor.opacity(0.15)).frame(width: 64, height: 64)
                     if let avatarUrl = authVM.currentUser?.avatarUrl, let url = URL(string: avatarUrl) {
                         AsyncImage(url: url) { image in
                             image.resizable().scaledToFill()
-                        } placeholder: {
-                            Image(systemName: "person.fill")
-                                .font(.title)
-                                .foregroundStyle(.white)
-                        }
-                        .clipShape(Circle())
-                        .frame(width: 70, height: 70)
-                    } else {
-                        Text(authVM.currentUser?.username.prefix(1).uppercased() ?? "G")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                    }
+                        } placeholder: { avatarInitial }
+                        .frame(width: 64, height: 64).clipShape(Circle())
+                    } else { avatarInitial }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(authVM.currentUser?.username ?? "Loading...")
-                        .font(.title3)
-                        .fontWeight(.bold)
-                    Text(authVM.currentUser?.email ?? "")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    if authVM.currentUser?.isAdmin == true {
-                        HStack(spacing: 4) {
-                            Image(systemName: "star.fill")
-                                .font(.caption2)
-                            Text("Admin")
-                                .font(.caption)
-                        }
-                        .foregroundStyle(.yellow)
+                    Text(authVM.currentUser?.username ?? (appMode == .local ? "Local User" : "Guest"))
+                        .font(.title3).fontWeight(.bold)
+                    Text(authVM.currentUser?.email ?? (appMode == .local ? "App Only Mode" : "Not signed in"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Image(systemName: appMode == .local ? "iphone" : "server.rack").font(.caption2)
+                        Text(appMode == .local ? "App Only" : "Server").font(.caption2).fontWeight(.medium)
                     }
+                    .foregroundStyle(theme.accentColor)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(theme.accentColor.opacity(0.1)).clipShape(Capsule())
                 }
                 Spacer()
+                if appMode == .server {
+                    Button { showEditProfile = true } label: {
+                        Image(systemName: "pencil").font(.subheadline).foregroundStyle(theme.accentColor)
+                            .frame(width: 34, height: 34).background(theme.accentColor.opacity(0.1)).clipShape(Circle())
+                    }
+                }
             }
         }
-        .padding(.horizontal, 16)
     }
 
-    // MARK: - Helpers
+    private var avatarInitial: some View {
+        Text(String((authVM.currentUser?.username ?? "G").prefix(1)).uppercased())
+            .font(.title2).fontWeight(.bold).foregroundStyle(theme.accentColor)
+    }
+
+    // MARK: - Theme
+
+    private var themeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("APPEARANCE")
+                .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary).tracking(0.8)
+            VaultCard(padding: 14) {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    ForEach(AppTheme.allCases) { t in
+                        ThemeSwatch(theme: t, isSelected: theme.currentTheme == t) {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                theme.currentTheme = t
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Server / Account
+
+    private var serverSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ACCOUNT")
+                .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary).tracking(0.8)
+            VaultCard(padding: 0) {
+                VStack(spacing: 0) {
+                    SettingsRow(icon: "lock.fill", title: "Change Password", color: .blue) { showChangePassword = true }.padding(16)
+                    Divider().padding(.leading, 62)
+                    SettingsRow(icon: "shield.fill", title: "Two-Factor Auth", color: .green) { show2FASetup = true }.padding(16)
+                    Divider().padding(.leading, 62)
+                    SettingsRow(icon: "server.rack", title: "Server Settings", subtitle: authVM.serverURL.isEmpty ? "Not configured" : authVM.serverURL, color: .indigo) { showServerSetup = true }.padding(16)
+                }
+            }
+        }
+        .sheet(isPresented: $show2FASetup) { TwoFactorView(authVM: authVM) }
+    }
+
+    // MARK: - Local Mode Settings
+
+    private var localSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SETTINGS")
+                .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary).tracking(0.8)
+            VaultCard(padding: 0) {
+                VStack(spacing: 0) {
+                    SettingsRow(icon: "key.fill", title: "RAWG API Key", subtitle: RAWGDirectService.shared.hasApiKey ? "Configured" : "Required for game search", color: RAWGDirectService.shared.hasApiKey ? .green : .orange) {
+                        showLocalSettings = true
+                    }.padding(16)
+                    Divider().padding(.leading, 62)
+                    SettingsRow(icon: "icloud.fill", title: "iCloud Sync", subtitle: "Syncs your library across Apple devices", color: .blue) {
+                        showLocalSettings = true
+                    }.padding(16)
+                    Divider().padding(.leading, 62)
+                    SettingsRow(icon: "bell.fill", title: "Notifications", color: .red) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }.padding(16)
+                }
+            }
+        }
+    }
+
+    // MARK: - App
+
+    private var appSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("APP")
+                .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary).tracking(0.8)
+            VaultCard(padding: 0) {
+                VStack(spacing: 0) {
+                    SettingsRow(icon: "bell.fill", title: "Notification Settings", color: .red) {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }.padding(16)
+                    Divider().padding(.leading, 62)
+                    SettingsRow(icon: "arrow.trianglehead.2.counterclockwise.rotate.90", title: "Restart Onboarding", color: .teal) { showResetOnboarding = true }.padding(16)
+                }
+            }
+        }
+        .confirmationDialog("Restart Onboarding?", isPresented: $showResetOnboarding) {
+            Button("Restart", role: .destructive) { hasCompletedOnboarding = false }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("This will take you back through the setup flow.") }
+    }
+
+    // MARK: - Danger
 
     @ViewBuilder
-    private func settingsSection(title: String, @ViewBuilder content: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.footnote)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.horizontal, 16)
-
-            GlassCard(cornerRadius: 16, padding: 0) {
-                content()
+    private var dangerSection: some View {
+        if appMode == .server {
+            VaultCard(padding: 0) {
+                Button { showLogoutConfirm = true } label: {
+                    HStack {
+                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                            .font(.subheadline).fontWeight(.semibold).foregroundStyle(.white)
+                            .frame(width: 32, height: 32).background(Color.red).clipShape(RoundedRectangle(cornerRadius: 8))
+                        Text("Sign Out").font(.subheadline).foregroundStyle(.red)
+                        Spacer()
+                    }
+                    .padding(16)
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
         }
-    }
-
-    private func infoRow(_ label: String, value: String) -> some View {
-        HStack {
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).font(.subheadline).foregroundStyle(.primary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-
-    private func formatDate(_ dateString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: dateString) {
-            let display = DateFormatter()
-            display.dateStyle = .medium
-            return display.string(from: date)
-        }
-        return dateString
     }
 }
 
-// MARK: - Settings Row
+// MARK: - Theme Swatch
 
-struct SettingsRow: View {
-    let icon: String
-    let title: String
-    let color: Color
+private struct ThemeSwatch: View {
+    let theme: AppTheme
+    let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            VStack(spacing: 6) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(color)
-                        .frame(width: 32, height: 32)
-                    Image(systemName: icon)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(theme.previewGradient)
+                        .frame(height: 52)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.1), lineWidth: isSelected ? 2.5 : 1)
+                        )
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.3), radius: 3)
+                    }
                 }
-                .padding(.leading, 4)
-
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+                Text(theme.displayName)
+                    .font(.caption2)
+                    .fontWeight(isSelected ? .bold : .regular)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
         }
         .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.04 : 1)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .sensoryFeedback(.selection, trigger: isSelected)
     }
 }
 
-// MARK: - Edit Profile View
+// MARK: - Edit Profile Sheet
 
-struct EditProfileView: View {
+struct EditProfileSheet: View {
     @ObservedObject var authVM: AuthViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var username = ""
-    @State private var avatarUrl = ""
     @State private var isSaving = false
     @State private var error: String?
-    @State private var success = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-                VStack(spacing: 20) {
-                    GlassCard {
-                        VStack(spacing: 14) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Username").font(.caption).foregroundStyle(.secondary)
-                                GlassTextField(placeholder: "Username", text: $username, icon: "person", autocapitalization: .never, autocorrect: false)
-                            }
-                            Divider().opacity(0.5)
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Avatar URL").font(.caption).foregroundStyle(.secondary)
-                                GlassTextField(placeholder: "https://...", text: $avatarUrl, icon: "photo.circle", keyboardType: .URL, autocapitalization: .never, autocorrect: false)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-
-                    if let error { ErrorBanner(message: error).padding(.horizontal, 16) }
-
-                    if success {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                            Text("Profile updated").foregroundStyle(.green)
-                        }
-                    }
-
-                    GlassButton(title: "Save Changes", icon: "checkmark", action: save, isLoading: isSaving)
-                        .padding(.horizontal, 16)
-
-                    Spacer()
+            Form {
+                Section("Username") {
+                    TextField("Username", text: $username).textInputAutocapitalization(.never).autocorrectionDisabled()
                 }
-                .padding(.top, 20)
+                if let error { Text(error).foregroundStyle(.red) }
             }
-            .navigationTitle("Edit Profile")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Edit Profile").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        isSaving = true
+                        Task {
+                            do {
+                                try await authVM.updateProfile(username: username.isEmpty ? nil : username)
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                            isSaving = false
+                        }
+                    }
+                    .fontWeight(.semibold).disabled(isSaving)
+                }
             }
-            .onAppear {
-                username = authVM.currentUser?.username ?? ""
-                avatarUrl = authVM.currentUser?.avatarUrl ?? ""
-            }
-        }
-    }
-
-    private func save() {
-        isSaving = true
-        error = nil
-        Task {
-            do {
-                try await authVM.updateProfile(
-                    username: username.isEmpty ? nil : username,
-                    currentPassword: nil,
-                    newPassword: nil
-                )
-                success = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
-            } catch {
-                self.error = error.localizedDescription
-            }
-            isSaving = false
+            .onAppear { username = authVM.currentUser?.username ?? "" }
         }
     }
 }
 
-// MARK: - Change Password View
+// MARK: - Local Settings Sheet
 
-struct ChangePasswordView: View {
-    @ObservedObject var authVM: AuthViewModel
+struct LocalSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var currentPassword = ""
-    @State private var newPassword = ""
-    @State private var confirmPassword = ""
-    @State private var isSaving = false
-    @State private var error: String?
-    @State private var success = false
+    @State private var rawgKey = RAWGDirectService.shared.apiKey
+    @State private var notifStatus: UNAuthorizationStatus = .notDetermined
+    @State private var requestingNotifs = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-                VStack(spacing: 20) {
-                    GlassCard {
-                        VStack(spacing: 14) {
-                            GlassTextField(placeholder: "Current password", text: $currentPassword, isSecure: true, icon: "lock")
-                            Divider().opacity(0.5)
-                            GlassTextField(placeholder: "New password (min 8 chars)", text: $newPassword, isSecure: true, icon: "lock.open")
-                            Divider().opacity(0.5)
-                            GlassTextField(placeholder: "Confirm new password", text: $confirmPassword, isSecure: true, icon: "lock.shield")
-                        }
-                    }
-                    .padding(.horizontal, 16)
-
-                    if let error { ErrorBanner(message: error).padding(.horizontal, 16) }
-                    if success {
+            Form {
+                // RAWG API Key
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                            Text("Password changed").foregroundStyle(.green)
-                        }
-                    }
-
-                    GlassButton(title: "Change Password", icon: "lock.rotation", action: changePassword, isLoading: isSaving, isDestructive: false)
-                        .padding(.horizontal, 16)
-                    Spacer()
-                }
-                .padding(.top, 20)
-            }
-            .navigationTitle("Change Password")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
-            }
-        }
-    }
-
-    private func changePassword() {
-        guard newPassword == confirmPassword else { error = "Passwords don't match"; return }
-        guard newPassword.count >= 8 else { error = "Password must be at least 8 characters"; return }
-        isSaving = true
-        Task {
-            do {
-                try await authVM.updateProfile(currentPassword: currentPassword, newPassword: newPassword)
-                success = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
-            } catch {
-                self.error = error.localizedDescription
-            }
-            isSaving = false
-        }
-    }
-}
-
-// MARK: - 2FA Management (stub - expand as needed)
-
-struct TwoFAManagementView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var status: TwoFAStatus?
-    @State private var isLoading = true
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-                if isLoading {
-                    ProgressView().tint(.indigo)
-                } else {
-                    VStack(spacing: 20) {
-                        GlassCard {
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Image(systemName: "qrcode").foregroundStyle(.indigo)
-                                    Text("Authenticator App (TOTP)")
-                                    Spacer()
-                                    Image(systemName: (status?.totpEnabled ?? false) ? "checkmark.circle.fill" : "xmark.circle")
-                                        .foregroundStyle((status?.totpEnabled ?? false) ? .green : .secondary)
-                                }
-                                Divider()
-                                HStack {
-                                    Image(systemName: "envelope").foregroundStyle(.blue)
-                                    Text("Email OTP")
-                                    Spacer()
-                                    Image(systemName: (status?.emailOtpEnabled ?? false) ? "checkmark.circle.fill" : "xmark.circle")
-                                        .foregroundStyle((status?.emailOtpEnabled ?? false) ? .green : .secondary)
+                            SecureField("Paste your RAWG API key", text: $rawgKey)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                            if !rawgKey.isEmpty {
+                                Button { rawgKey = "" } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                                 }
                             }
                         }
-                        .padding(.horizontal, 16)
+                        Text("Required for searching games in App Only mode.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Link("Get your free key at rawg.io/apidocs →",
+                             destination: URL(string: "https://rawg.io/apidocs")!)
+                            .font(.caption).foregroundStyle(Color.accentColor)
+                    }
+                } header: {
+                    Text("RAWG API Key")
+                } footer: {
+                    Text("RAWG provides game artwork, metadata, and search. Free accounts support up to 500,000 requests/month.")
+                }
 
-                        Text("To configure 2FA settings, use the GameVault web interface.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-
+                // iCloud
+                Section("iCloud Sync") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sync via iCloud")
+                            Text("Your library syncs automatically when iCloud is enabled.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
                     }
-                    .padding(.top, 20)
+                    Button("Manage iCloud in Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                }
+
+                // Notifications
+                Section("Notifications") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Status")
+                            Text(notifStatusText).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: notifStatusIcon)
+                            .foregroundStyle(notifStatusColor)
+                    }
+
+                    if notifStatus == .notDetermined {
+                        Button("Enable Notifications") {
+                            requestingNotifs = true
+                            Task {
+                                _ = await NotificationService.shared.requestPermission()
+                                notifStatus = await NotificationService.shared.authorizationStatus
+                                requestingNotifs = false
+                            }
+                        }
+                        .disabled(requestingNotifs)
+                    } else {
+                        Button("Open Notification Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Review reminders after completing a game", systemImage: "star.bubble")
+                        Label("Release alerts for wishlist games", systemImage: "calendar.badge.clock")
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Two-Factor Auth")
+            .navigationTitle("App Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        RAWGDirectService.shared.apiKey = rawgKey.trimmingCharacters(in: .whitespaces)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
             }
             .task {
-                status = try? await AuthService.shared.get2FAStatus()
-                isLoading = false
+                notifStatus = await NotificationService.shared.authorizationStatus
             }
         }
     }
+
+    private var notifStatusText: String {
+        switch notifStatus {
+        case .authorized:    return "Enabled"
+        case .denied:        return "Disabled — open Settings to enable"
+        case .notDetermined: return "Not yet requested"
+        default:             return "Unknown"
+        }
+    }
+
+    private var notifStatusIcon: String {
+        notifStatus == .authorized ? "checkmark.circle.fill" : "xmark.circle.fill"
+    }
+
+    private var notifStatusColor: Color {
+        notifStatus == .authorized ? .green : .red
+    }
 }
 
-// MARK: - Admin Panel
+// MARK: - Change Password Sheet
 
-struct AdminPanelView: View {
+struct ChangePasswordSheet: View {
+    @ObservedObject var authVM: AuthViewModel
     @Environment(\.dismiss) private var dismiss
-    @State private var users: [AdminUser] = []
-    @State private var isLoading = true
+    @State private var current = ""
+    @State private var newPass = ""
+    @State private var confirm = ""
+    @State private var isSaving = false
     @State private var error: String?
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-                if isLoading {
-                    ProgressView("Loading users...").tint(.indigo)
-                } else if let error {
-                    VStack(spacing: 16) {
-                        Image(systemName: "exclamationmark.triangle").font(.largeTitle).foregroundStyle(.red)
-                        Text(error).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                        Button("Retry") { Task { await loadUsers() } }
-                    }
-                    .padding()
-                } else {
-                    List {
-                        ForEach(users) { user in
-                            HStack(spacing: 12) {
-                                ZStack {
-                                    Circle().fill(user.isAdmin ? Color.yellow.opacity(0.2) : Color.indigo.opacity(0.1)).frame(width: 40, height: 40)
-                                    Text(user.username.prefix(1).uppercased())
-                                        .fontWeight(.bold)
-                                        .foregroundStyle(user.isAdmin ? .yellow : .indigo)
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack(spacing: 6) {
-                                        Text(user.username).fontWeight(.medium)
-                                        if user.isAdmin {
-                                            Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow)
-                                        }
-                                    }
-                                    Text(user.email).font(.caption).foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if !user.isActive {
-                                    Text("Disabled").font(.caption).foregroundStyle(.red)
-                                }
-                            }
+            Form {
+                Section("Current Password") { SecureField("Current password", text: $current) }
+                Section("New Password") {
+                    SecureField("New password", text: $newPass)
+                    SecureField("Confirm new password", text: $confirm)
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+            }
+            .navigationTitle("Change Password").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") {
+                        guard newPass == confirm else { error = "Passwords don't match"; return }
+                        guard newPass.count >= 8 else { error = "Min 8 characters"; return }
+                        isSaving = true
+                        Task {
+                            do {
+                                try await authVM.updateProfile(currentPassword: current, newPassword: newPass)
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                            isSaving = false
                         }
                     }
+                    .fontWeight(.semibold).disabled(isSaving || current.isEmpty || newPass.isEmpty)
                 }
             }
-            .navigationTitle("User Management")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
-            }
-            .task { await loadUsers() }
         }
-    }
-
-    private func loadUsers() async {
-        isLoading = true
-        do {
-            users = try await APIService.shared.request("/admin/users")
-        } catch {
-            self.error = error.localizedDescription
-        }
-        isLoading = false
     }
 }

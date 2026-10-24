@@ -3,6 +3,7 @@ import SwiftUI
 struct ServerSetupView: View {
     @ObservedObject var authVM: AuthViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(ThemeManager.self) private var theme
     @State private var isTestingConnection = false
     @State private var connectionResult: String?
     @State private var connectionSuccess = false
@@ -14,36 +15,29 @@ struct ServerSetupView: View {
 
                 ScrollView {
                     VStack(spacing: 28) {
-                        // Header
-                        VStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.indigo.opacity(0.2))
-                                    .frame(width: 80, height: 80)
-                                Image(systemName: "server.rack")
-                                    .font(.system(size: 36))
-                                    .foregroundStyle(
-                                        LinearGradient(colors: [.indigo, .purple], startPoint: .top, endPoint: .bottom)
-                                    )
-                            }
-                            Text("Server Setup")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Enter the URL of your GameVault server")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.top, 20)
-
-                        GlassCard {
+                        VaultCard(cornerRadius: 30, padding: 20) {
                             VStack(alignment: .leading, spacing: 16) {
-                                Text("Server URL")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 14) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(theme.accentColor.opacity(0.16))
+                                            .frame(width: 58, height: 58)
+                                        Image(systemName: "server.rack")
+                                            .font(.title2.weight(.bold))
+                                            .foregroundStyle(theme.accentColor)
+                                    }
 
-                                GlassTextField(
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("Server Setup")
+                                            .font(.title2)
+                                            .fontWeight(.bold)
+                                        Text("Point GameVault at your self-hosted instance and verify the connection before signing in.")
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                VaultTextField(
                                     placeholder: "http://192.168.1.100:3000",
                                     text: $authVM.serverURL,
                                     icon: "link",
@@ -55,44 +49,41 @@ struct ServerSetupView: View {
                                 Text("This is the address of your self-hosted GameVault instance. Include http:// or https://")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
+                            }
+                        }
 
-                                // Connection test result
-                                if let result = connectionResult {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: connectionSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                                            .foregroundStyle(connectionSuccess ? .green : .red)
-                                        Text(result)
-                                            .font(.caption)
-                                            .foregroundStyle(connectionSuccess ? .green : .red)
-                                    }
-                                    .padding(.top, 4)
+                        if let result = connectionResult {
+                            VaultCard {
+                                HStack(spacing: 10) {
+                                    Image(systemName: connectionSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                        .foregroundStyle(connectionSuccess ? .green : .red)
+                                    Text(result)
+                                        .font(.subheadline)
+                                        .foregroundStyle(connectionSuccess ? .green : .red)
                                 }
                             }
                         }
 
                         VStack(spacing: 12) {
-                            GlassButton(
+                            VaultButton(
                                 title: isTestingConnection ? "Testing..." : "Test Connection",
                                 icon: "wifi",
                                 action: testConnection,
                                 isLoading: isTestingConnection,
-                                style: .glass
+                                style: .ghost
                             )
 
-                            GlassButton(
+                            VaultButton(
                                 title: "Save & Continue",
                                 icon: "checkmark",
                                 action: save
                             )
                         }
 
-                        // Examples
-                        GlassCard {
+                        VaultCard {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("Common examples:")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.secondary)
+                                    .font(.headline)
                                 ForEach(examples, id: \.self) { example in
                                     Button {
                                         authVM.serverURL = example
@@ -132,14 +123,21 @@ struct ServerSetupView: View {
     ]
 
     private var backgroundGradient: some View {
-        LinearGradient(
-            colors: [
-                Color(uiColor: .systemBackground),
-                Color.indigo.opacity(0.05)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        ZStack {
+            Color(uiColor: .systemGroupedBackground)
+
+            Circle()
+                .fill(theme.accentColor.opacity(0.14))
+                .frame(width: 260, height: 260)
+                .blur(radius: 44)
+                .offset(x: -130, y: -260)
+
+            Circle()
+                .fill(Color.blue.opacity(0.10))
+                .frame(width: 220, height: 220)
+                .blur(radius: 40)
+                .offset(x: 140, y: -140)
+        }
     }
 
     private func testConnection() {
@@ -156,7 +154,7 @@ struct ServerSetupView: View {
         Task {
             do {
                 struct HealthResponse: Decodable { let status: String? }
-                let response: HealthResponse = try await APIService.shared.request("/health", retryOnUnauthorized: false)
+                let _: HealthResponse = try await APIService.shared.request("/health", retryOnUnauthorized: false)
                 connectionResult = "Connected successfully! Server is healthy."
                 connectionSuccess = true
             } catch {

@@ -80,7 +80,7 @@ struct TwoFAStatus: Codable {
 
 // MARK: - Game
 
-enum GameStatus: String, Codable, CaseIterable, Identifiable {
+enum GameStatus: String, Codable, CaseIterable, Identifiable, Hashable {
     case playing
     case played
     case toplay
@@ -104,7 +104,7 @@ enum GameStatus: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-struct Game: Codable, Identifiable, Equatable {
+struct Game: Codable, Identifiable, Equatable, Hashable {
     let id: String
     let userId: String?
     var rawgId: Int?
